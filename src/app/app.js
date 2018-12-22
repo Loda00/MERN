@@ -1,6 +1,8 @@
 import React, { Component } from 'react'
 import { render }  from 'react-dom'
 import axios from 'axios'
+import { throws, rejects } from 'assert';
+import { resolve } from 'path';
 
 
 class App extends Component {
@@ -10,33 +12,55 @@ class App extends Component {
 
         this.state = {
             title: '',
-            desc: ''
+            desc: '',
+            tasks: [],
+            idTask: null
         }
 
         this.addTask = this.addTask.bind(this)
         this.catchForm = this.catchForm.bind(this)
+        this.getTasks = this.getTasks.bind(this)
     }
 
     addTask (e) {
-        console.log(`add task `)
 
         if (this.state.title.length < 3) {
             console.log(`el titulo debe tener mas de 3 digitos`)
+            M.toast({html: 'Form Incomplete !'})
             e.preventDefault()
             return
         }
+        
+        const {title, desc, idTask} = this.state
 
-        axios.post(`/api/data`, {
-            title: this.state.title,
-            description: this.state.desc
-        }).then(rs => {
-            console.log(rs)
-            M.toast({html: 'Task saved !'})
-            this.setState({title: '', desc: ''})
-        })
-        .catch(err => console.log(err))
+        this.setTask(idTask,{title,description: desc})
 
         e.preventDefault()
+       
+    }
+    
+    setTask (id, objTask) {
+    
+            if (id === undefined || id === null) {
+    
+                console.log('add', id)
+                axios.post(`/api/data`,objTask).then(rs => {
+                    M.toast({html: 'Task saved !'})
+                    this.cleanForm()
+                    this.getTasks()
+                })
+                .catch(err => console.log(err))
+    
+            } else {
+    
+                axios.put(`/api/data/${id}`,objTask)
+                .then(rs => {
+                    M.toast({html: 'Task Updated !'})
+                    this.cleanForm()
+                    this.getTasks()
+                })
+                .catch(err => console.log(err))
+            }
     }
 
     catchForm (e) {
@@ -48,6 +72,54 @@ class App extends Component {
         })
 
     }
+
+    getTasks () {
+
+        axios.get(`/api/data`)
+        .then(res => {
+            this.setState({tasks: res.data.db})
+            console.log(this.state.tasks)
+        })
+        .catch(err => console.log(`err`, err))
+    }
+
+    componentWillMount () {
+        this.getTasks()
+    }
+
+    deleteTask (ide) {
+
+        console.log('e', ide)
+        axios.delete(`/api/data/${ide}`)
+        .then(rs => this.getTasks())
+        .catch(err => console.log('err ', err))
+
+    }
+
+    cleanForm () {
+        this.setState({title: '', desc: ''})
+    }
+
+    editTask (id) {
+
+        console.log(`id `, id)
+
+        this.setState({idTask: id})
+
+        axios.get(`api/data/${id}`)
+        .then(rs => {
+
+            const { description, title } = rs.data.db
+
+            this.setState({
+                title: title,
+                desc: description
+            })
+        })
+        .catch(err => console.log(err))
+
+    }
+
 
     render () {
         return (
@@ -73,14 +145,39 @@ class App extends Component {
                                                 <textarea name="desc" onChange={this.catchForm} value={this.state.desc} placeholder="Task Description" className="materialize-textarea col s12"></textarea>
                                         </div>
                                         <div className="row">
-                                            <button className="btn light-blue darken-4 col s12">Send</button>
+                                            <button className="btn light-blue darken-4">Send</button>
+                                            {/* <button className="btn light-blue darken-4" onClick={() => this.cleanForm()}>Clean</button> */}
                                         </div>
                                     </form>
                                 </div>
                             </div>
                         </div>
+                        <div className="col s1"></div>
                         <div className="col s7" >
-
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Description</th>
+                                        <th>Edit</th>
+                                        <th>Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {
+                                        this.state.tasks.map(task => {
+                                            return (
+                                                <tr key={task._id}>
+                                                    <td>{task.title}</td>
+                                                    <td>{task.description}</td>
+                                                    <td><i onClick={() => this.editTask(task._id)} className="small material-icons">edit</i></td>
+                                                    <td><i onClick={() => this.deleteTask(task._id)} className="small material-icons">delete</i></td>
+                                                </tr>
+                                            )
+                                        })
+                                    }
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
